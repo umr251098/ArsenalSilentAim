@@ -1,133 +1,170 @@
---// Load Rayfield UI Library
-local Rayfield = loadstring(game:HttpGet("https://sirius.menu/rayfield"))()
+-- Load Rayfield
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
---// Create Main Window
+-- Window Setup
 local Window = Rayfield:CreateWindow({
     Name = "Arsenal Silent Aim Hub",
-    LoadingTitle = "Arsenal Hub Loading...",
-    LoadingSubtitle = "by YourNameHere", -- you can put your name
+    LoadingTitle = "Arsenal Silent Aim Hub",
+    LoadingSubtitle = "by umr251098",
     ConfigurationSaving = {
-        Enabled = true,
-        FolderName = "ArsenalSilentAim", -- folder where it saves settings
-        FileName = "ArsenalSilentAimHub"
+        Enabled = false,
     },
     Discord = {
         Enabled = false,
-        Invite = "", -- If you have a Discord server
-        RememberJoins = false
     },
     KeySystem = false,
-    KeySettings = {
-        Title = "Arsenal Hub Key",
-        Subtitle = "Key System",
-        Note = "No key needed",
-        FileName = "KeySystem",
-        SaveKey = true,
-        GrabKeyFromSite = false,
-        Key = {"yourkey"}
-    }
 })
 
---// Variables
+-- Tabs
+local MainTab = Window:CreateTab("Main", 4483362458)
+local CustomizeTab = Window:CreateTab("Customize", 4483362458)
+
+-- Variables
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local CoreGui = game:GetService("CoreGui")
+
+-- Silent Aim Variables
 local SilentAimEnabled = false
-local SpeedHackEnabled = false
-local WallHackEnabled = false
+
+-- ESP Variables
 local ESPEnabled = false
+local espFolder = Instance.new("Folder", CoreGui)
+espFolder.Name = "ESPFolder"
 
---// Functions
-function toggleSilentAim(state)
-    SilentAimEnabled = state
-    -- Here you would start or stop silent aim
-end
+-- Speed Hack Variables
+local SpeedEnabled = false
+local NormalSpeed = 16
+local BoostSpeed = 50
 
-function toggleSpeedHack(state)
-    SpeedHackEnabled = state
-    if state then
-        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 40 -- Speed hack
-    else
-        game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 16 -- Reset to normal
-    end
-end
+-- Wall Hack Variables
+local WallHackEnabled = false
 
-function toggleWallHack(state)
-    WallHackEnabled = state
-    if state then
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("BasePart") and v.Transparency < 0.8 then
-                v.LocalTransparencyModifier = 0.5
-            end
-        end
-    else
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("BasePart") then
-                v.LocalTransparencyModifier = v.Transparency
-            end
-        end
-    end
-end
-
-function toggleESP(state)
-    ESPEnabled = state
-    if state then
-        -- ESP On
-        for _, player in pairs(game.Players:GetPlayers()) do
-            if player ~= game.Players.LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-                local highlight = Instance.new("Highlight")
-                highlight.Name = "ArsenalESP"
-                highlight.Adornee = player.Character
-                highlight.FillColor = Color3.fromRGB(255,0,0)
-                highlight.OutlineColor = Color3.fromRGB(255,0,0)
-                highlight.Parent = player.Character
-            end
-        end
-    else
-        -- ESP Off
-        for _, player in pairs(game.Players:GetPlayers()) do
-            if player.Character and player.Character:FindFirstChild("ArsenalESP") then
-                player.Character:FindFirstChild("ArsenalESP"):Destroy()
-            end
-        end
-    end
-end
-
---// Create Tabs
-local MainTab = Window:CreateTab("Main", 4483362458) -- Silent Aim Icon
-local CustomizeTab = Window:CreateTab("Customize", 4483362458) -- Customize Icon
-
---// Main Tab Options
+-- Main Tab: Silent Aim Toggle
 MainTab:CreateToggle({
     Name = "Silent Aim",
     CurrentValue = false,
-    Flag = "SilentAim",
     Callback = function(Value)
-        toggleSilentAim(Value)
+        SilentAimEnabled = Value
     end,
 })
 
---// Customize Tab Options
+-- Customize Tab: ESP Toggle
+CustomizeTab:CreateToggle({
+    Name = "ESP",
+    CurrentValue = false,
+    Callback = function(Value)
+        ESPEnabled = Value
+
+        if not Value then
+            espFolder:ClearAllChildren()
+        end
+    end,
+})
+
+-- Customize Tab: Speed Hack Toggle
 CustomizeTab:CreateToggle({
     Name = "Speed Hack",
     CurrentValue = false,
-    Flag = "SpeedHack",
     Callback = function(Value)
-        toggleSpeedHack(Value)
+        SpeedEnabled = Value
+
+        if SpeedEnabled then
+            LocalPlayer.Character.Humanoid.WalkSpeed = BoostSpeed
+        else
+            LocalPlayer.Character.Humanoid.WalkSpeed = NormalSpeed
+        end
     end,
 })
 
+-- Customize Tab: Wall Hack Toggle
 CustomizeTab:CreateToggle({
     Name = "Wall Hack",
     CurrentValue = false,
-    Flag = "WallHack",
     Callback = function(Value)
-        toggleWallHack(Value)
+        WallHackEnabled = Value
+
+        for _, v in ipairs(workspace:GetDescendants()) do
+            if v:IsA("BasePart") and v.Transparency == 0 and v.CanCollide then
+                if WallHackEnabled then
+                    v.LocalTransparencyModifier = 0.5
+                else
+                    v.LocalTransparencyModifier = 0
+                end
+            end
+        end
     end,
 })
 
-CustomizeTab:CreateToggle({
-    Name = "ESP (Box + Username)",
-    CurrentValue = false,
-    Flag = "ESP",
-    Callback = function(Value)
-        toggleESP(Value)
-    end,
-})
+-- Silent Aim Logic
+local function GetClosestPlayerToCursor()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Head") then
+            local screenPoint, onScreen = workspace.CurrentCamera:WorldToViewportPoint(player.Character.Head.Position)
+            if onScreen then
+                local distance = (Vector2.new(Mouse.X, Mouse.Y) - Vector2.new(screenPoint.X, screenPoint.Y)).Magnitude
+                if distance < shortestDistance and distance <= 40 then
+                    shortestDistance = distance
+                    closestPlayer = player
+                end
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+local old
+old = hookmetamethod(game, "__namecall", function(self, ...)
+    local args = {...}
+    local method = getnamecallmethod()
+
+    if SilentAimEnabled and method == "FireServer" and self.Name == "HitPart" then
+        local target = GetClosestPlayerToCursor()
+        if target and target.Character then
+            local chance = math.random(1, 100)
+            if chance <= 80 then
+                args[2] = target.Character.Head
+            else
+                args[2] = target.Character:FindFirstChild("Torso") or target.Character:FindFirstChild("UpperTorso")
+            end
+            return old(self, unpack(args))
+        end
+    end
+
+    return old(self, ...)
+end)
+
+-- ESP Update Loop
+task.spawn(function()
+    while task.wait(0.5) do
+        if ESPEnabled then
+            espFolder:ClearAllChildren()
+
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    local box = Instance.new("BillboardGui", espFolder)
+                    box.Adornee = player.Character.HumanoidRootPart
+                    box.Size = UDim2.new(4,0,5,0)
+                    box.AlwaysOnTop = true
+
+                    local frame = Instance.new("Frame", box)
+                    frame.Size = UDim2.new(1,0,1,0)
+                    frame.BackgroundTransparency = 0.5
+                    frame.BackgroundColor3 = Color3.fromRGB(255,0,0)
+
+                    local name = Instance.new("TextLabel", box)
+                    name.Size = UDim2.new(1,0,0.2,0)
+                    name.Position = UDim2.new(0,0,-0.2,0)
+                    name.Text = player.Name
+                    name.TextColor3 = Color3.new(1,0,0)
+                    name.BackgroundTransparency = 1
+                end
+            end
+        end
+    end
+end)
